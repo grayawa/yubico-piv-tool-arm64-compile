@@ -99,6 +99,7 @@ jobs:
             "-DZLIB_LIB_DIR=$(Join-Path $tripletRoot 'lib')",
             "-DZLIB_INCL_DIR=$(Join-Path $tripletRoot 'include')",
             "-DZLIB_ROOT=$tripletRoot",
+            "-DZLIB=$(Join-Path $tripletRoot 'lib/z.lib')",
             "-DSUPRESS_MSVC_WARNINGS=ON",
             "-DGENERATE_MAN_PAGES=OFF"
           )
