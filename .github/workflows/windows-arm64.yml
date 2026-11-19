@@ -76,7 +76,7 @@ jobs:
           $vcpkgCommand = Get-Command vcpkg -ErrorAction Stop
           $vcpkgRoot = Split-Path $vcpkgCommand.Source
           "VCPKG_ROOT=$vcpkgRoot" >> $env:GITHUB_ENV
-          & $vcpkgCommand.Source install openssl getopt check --triplet arm64-windows
+          & $vcpkgCommand.Source install openssl getopt check zlib --triplet arm64-windows
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
       - name: Configure and build
@@ -96,6 +96,9 @@ jobs:
             "-DGETOPT_LIB_DIR=$(Join-Path $tripletRoot 'lib')",
             "-DGETOPT_INCLUDE_DIR=$(Join-Path $tripletRoot 'include')",
             "-DCHECK_PATH=$tripletRoot",
+            "-DZLIB_LIB_DIR=$(Join-Path $tripletRoot 'lib')",
+            "-DZLIB_INCL_DIR=$(Join-Path $tripletRoot 'include')",
+            "-DZLIB_ROOT=$tripletRoot",
             "-DSUPRESS_MSVC_WARNINGS=ON",
             "-DGENERATE_MAN_PAGES=OFF"
           )
