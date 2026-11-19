@@ -86,6 +86,20 @@ jobs:
           $env:OPENSSL_ROOT_DIR = $tripletRoot
           $env:Path = "$(Join-Path $tripletRoot 'bin');$env:Path"
 
+          # vcpkg zlib port versions use different Windows library names:
+          # zlib 1.3.x provides z.lib, while newer ports may provide libz.lib.
+          $zlibLibrary = @("z.lib", "libz.lib", "zlib.lib") |
+            ForEach-Object { Join-Path $tripletRoot "lib\$_" } |
+            Where-Object { Test-Path $_ } |
+            Select-Object -First 1
+          if (-not $zlibLibrary) {
+            Write-Host "Available zlib-like libraries:"
+            Get-ChildItem (Join-Path $tripletRoot "lib") -Filter "*z*.lib" |
+              Select-Object -ExpandProperty FullName
+            throw "Could not locate the ARM64 zlib library"
+          }
+          Write-Host "Using ARM64 zlib library: $zlibLibrary"
+
           $cmakeArgs = @(
             "-S", $env:SOURCE_DIR,
             "-B", "build",
@@ -99,7 +113,7 @@ jobs:
             "-DZLIB_LIB_DIR=$(Join-Path $tripletRoot 'lib')",
             "-DZLIB_INCL_DIR=$(Join-Path $tripletRoot 'include')",
             "-DZLIB_ROOT=$tripletRoot",
-            "-DZLIB=$(Join-Path $tripletRoot 'lib/libz.lib')",
+            "-DZLIB=$zlibLibrary",
             "-DSUPRESS_MSVC_WARNINGS=ON",
             "-DGENERATE_MAN_PAGES=OFF"
           )
