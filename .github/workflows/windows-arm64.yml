@@ -140,15 +140,44 @@ jobs:
           For OpenSSH PKCS#11 use the absolute path to libykcs11.dll as PKCS11Provider.
           "@ | Set-Content package\README.txt
 
-          foreach ($dll in Get-ChildItem package -Filter *.dll) {
-            $dump = & dumpbin /headers $dll.FullName 2>&1 | Out-String
-            if ($dump -notmatch "AA64 machine") {
-              throw "Non-ARM64 DLL detected: $($dll.Name)"
+          # Validate PE machine type without relying on dumpbin being in PATH.
+          function Get-PeMachine([string]$FilePath) {
+            $stream = [System.IO.File]::Open(
+              $FilePath,
+              [System.IO.FileMode]::Open,
+              [System.IO.FileAccess]::Read,
+              [System.IO.FileShare]::Read
+            )
+            try {
+              $reader = [System.IO.BinaryReader]::new($stream)
+              $stream.Position = 0x3C
+              $peOffset = $reader.ReadInt32()
+              if ($peOffset -lt 0 -or $peOffset -gt ($stream.Length - 6)) {
+                throw "Invalid PE header offset: $FilePath"
+              }
+              $stream.Position = $peOffset
+              if ($reader.ReadUInt32() -ne 0x00004550) {
+                throw "Invalid PE signature: $FilePath"
+              }
+              return $reader.ReadUInt16()
+            }
+            finally {
+              if ($reader) { $reader.Dispose() } else { $stream.Dispose() }
             }
           }
-          $exeDump = & dumpbin /headers package\yubico-piv-tool.exe 2>&1 | Out-String
-          if ($exeDump -notmatch "AA64 machine") {
-            throw "yubico-piv-tool.exe is not ARM64"
+
+          foreach ($binary in Get-ChildItem package -File | Where-Object { $_.Extension -in '.dll', '.exe' }) {
+            $machine = Get-PeMachine $binary.FullName
+            if ($machine -ne 0xAA64) {
+              throw "Non-ARM64 PE detected: $($binary.Name) (machine=0x$('{0:X4}' -f $machine))"
+            }
+            Write-Host ("Verified ARM64: {0}" -f $binary.Name)
+          }
+
+          foreach ($required in 'libykcs11.dll', 'libykpiv.dll', 'yubico-piv-tool.exe') {
+            if (-not (Test-Path (Join-Path package $required))) {
+              throw "Required runtime file missing: $required"
+            }
           }
 
           Get-ChildItem package -File | Get-FileHash -Algorithm SHA256 |
